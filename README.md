@@ -3,6 +3,9 @@
 ブラウザで話すと、自分のサーバーだけで日本語を文字起こしします。外部APIは使いません(モデルの初回ダウンロードを除く)。
 訂正したデータで Whisper を再学習(LoRA)し、精度が上がったときだけモデルを差し替えられます。
 
+- 作り方の解説: [Qiita](https://qiita.com/YK-Planning/items/991eef5e54e2f59cccf5)
+- 精度を測った結果: [note](https://note.com/ykplanning/n/n25d1cf4a3aef)
+
 - 確定用: [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
 - 途中表示用(任意): [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) + ReazonSpeech
 - サーバー: FastAPI + SQLite
