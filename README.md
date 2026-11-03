@@ -52,6 +52,18 @@ docker compose run --rm -e BASE_MODEL=openai/whisper-small -e MIN_ITEMS=10 asr p
 - サーバーを再起動すると新モデルで動きます。戻すには `data/current_model.txt` を削除して再起動します。
 - 学習は GPU(VRAM 24GB 目安、`small` なら 8GB 程度)を推奨します。CPU だと非常に遅いです。
 
+### 6. 精度(CER)を測る
+台本を読み上げた通話と、台本の文章を比べて CER(文字誤り率)を出します。
+1. `/live.html` で「通話を始める」を押し、[scripts/daihon.txt](scripts/daihon.txt) を1行ずつ読み上げて「通話を終える」。
+2. 次を実行します(直近の通話が対象。モデルを増やすほど時間がかかり、初回はモデルのダウンロードがあります)。
+   ```
+   docker compose exec asr python scripts/cer.py --ref scripts/daihon.txt --models small,medium,large-v3-turbo --sherpa
+   ```
+- 区切りごとの文をつなげて台本全体と比べるので、行ごとの訂正は不要です。読み間違えたら、台本のほうを実際に読んだとおりに直してください。
+- 全角半角をそろえ、句読点と空白を除いてから比べます。漢数字と算用数字、ひらがなと漢字の違いは誤りに数えます。
+- `--show` を付けると、各モデルの認識結果も表示します。
+- `--ref` を省くと、画面で訂正して「学習に使う」にした区切りと比べます。
+
 ## 設定(環境変数)
 
 | 変数 | 既定 | 意味 |

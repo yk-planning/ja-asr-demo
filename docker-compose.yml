@@ -14,6 +14,7 @@ services:
     volumes:
       - ./data:/app/data                    # 録音・DB・モデルはここに残る
       - ./glossary.txt:/app/glossary.txt    # 用語ヒント(再ビルド不要)
+      - ./scripts:/app/scripts              # 台本・計測スクリプト(再ビルド不要)
       - hf-cache:/root/.cache/huggingface   # ダウンロード済みモデル
     restart: unless-stopped
 

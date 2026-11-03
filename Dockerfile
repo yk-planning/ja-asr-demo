@@ -12,6 +12,7 @@ RUN pip install -r requirements.txt \
 
 COPY server.py live.py train.py glossary.txt ./
 COPY static ./static
+COPY scripts ./scripts
 
 EXPOSE 8000
 CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8000"]
