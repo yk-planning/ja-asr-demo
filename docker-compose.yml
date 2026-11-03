@@ -1,0 +1,21 @@
+services:
+  asr:
+    build:
+      context: .
+      args:
+        WITH_TRAIN: ${WITH_TRAIN:-0}   # 再学習も試すときは 1
+    ports:
+      - "8000:8000"
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-small}        # GPUなしの試用向け。精度重視なら large-v3-turbo
+      ASR_DEVICE: ${ASR_DEVICE:-cpu}
+      ASR_COMPUTE: ${ASR_COMPUTE:-int8}
+      # HF_HUB_OFFLINE: "1"                 # モデル取得後に完全オフラインにする場合
+    volumes:
+      - ./data:/app/data                    # 録音・DB・モデルはここに残る
+      - ./glossary.txt:/app/glossary.txt    # 用語ヒント(再ビルド不要)
+      - hf-cache:/root/.cache/huggingface   # ダウンロード済みモデル
+    restart: unless-stopped
+
+volumes:
+  hf-cache:

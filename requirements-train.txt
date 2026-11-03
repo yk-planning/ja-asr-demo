@@ -1,0 +1,4 @@
+# 再学習(train.py)用。torch は別途インストール(Dockerfileでは CPU版を先に入れる)
+transformers>=4.44
+peft>=0.12
+jiwer

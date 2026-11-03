@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>音声文字起こし</title>
+<style>
+  :root{
+    --bg:#f6f7f5; --surface:#fff; --ink:#1d2421; --muted:#68726d; --line:#d9dedb;
+    --accent:#1f6f5c; --accent-ink:#fff; --rec:#c93a2b; --ok:#1f6f5c;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#141816; --surface:#1d2321; --ink:#e8ece9; --muted:#93a09a; --line:#2f3935;
+      --accent:#4fb89c; --accent-ink:#0d1512; --rec:#ee6a5a; --ok:#4fb89c; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.7 "Hiragino Sans","Yu Gothic UI","Noto Sans JP",system-ui,sans-serif}
+  main{max-width:760px;margin:0 auto;padding:28px 16px 80px}
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  h1{font-size:1.25rem;margin:0}
+  .meta{color:var(--muted);font-size:.85rem}
+  .rec{display:flex;align-items:center;gap:16px;margin:24px 0;padding:20px;
+    background:var(--surface);border:1px solid var(--line);border-radius:10px}
+  #recBtn{font:inherit;font-weight:600;border:0;border-radius:999px;padding:12px 26px;
+    background:var(--accent);color:var(--accent-ink);cursor:pointer}
+  #recBtn.on{background:var(--rec);color:#fff}
+  #recBtn:disabled{opacity:.5;cursor:wait}
+  #status{color:var(--muted);font-size:.9rem}
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--rec);margin-right:6px;
+    animation:blink 1s steps(2) infinite}
+  @media (prefers-reduced-motion:reduce){.dot{animation:none}}
+  @keyframes blink{50%{opacity:.2}}
+  .item{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px}
+  .item.approved{border-left:4px solid var(--ok)}
+  .item .top{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:.8rem;margin-bottom:6px}
+  textarea{width:100%;min-height:4.5em;resize:vertical;font:inherit;color:var(--ink);background:var(--bg);
+    border:1px solid var(--line);border-radius:8px;padding:10px}
+  textarea:focus-visible,button:focus-visible,audio:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .row{display:flex;align-items:center;gap:12px;margin-top:8px;flex-wrap:wrap}
+  audio{height:34px;flex:1;min-width:200px}
+  label{display:flex;align-items:center;gap:6px;font-size:.9rem}
+  .btn{font:inherit;font-size:.9rem;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+    border-radius:8px;padding:6px 14px;cursor:pointer}
+  .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .saved{color:var(--ok);font-size:.85rem}
+  .empty{color:var(--muted);text-align:center;padding:32px 0}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>音声文字起こし</h1>
+    <div class="meta" id="stats"></div>
+    <div class="meta"><a href="/live.html">リアルタイム文字起こしへ</a></div>
+  </header>
+
+  <section class="rec">
+    <button id="recBtn">録音を開始</button>
+    <div id="status">マイクのボタンを押して話してください。</div>
+  </section>
+
+  <div id="list"></div>
+  <p class="meta"><a href="/api/export" download="approved.jsonl">承認済みデータを書き出す(JSONL)</a></p>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const recBtn = $('#recBtn'), statusEl = $('#status'), listEl = $('#list');
+let recorder, chunks = [], stream;
+
+function pickMime(){
+  for (const m of ['audio/webm;codecs=opus','audio/webm','audio/mp4'])
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return m;
+  return '';
+}
+
+recBtn.onclick = async () => {
+  if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
+  if (!navigator.mediaDevices) {
+    statusEl.textContent = 'マイクを使うには HTTPS(または localhost)でアクセスしてください。'; return;
+  }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({audio:true});
+  } catch (e) { statusEl.textContent = 'マイクを使えません: ' + e.message; return; }
+  const mime = pickMime();
+  recorder = new MediaRecorder(stream, mime ? {mimeType:mime} : undefined);
+  chunks = [];
+  recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+  recorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    recBtn.classList.remove('on'); recBtn.disabled = true; recBtn.textContent = '文字起こし中…';
+    statusEl.textContent = 'サーバーで処理しています。';
+    const type = recorder.mimeType || 'audio/webm';
+    const ext = type.includes('mp4') ? 'mp4' : 'webm';
+    const fd = new FormData();
+    fd.append('file', new Blob(chunks, {type}), 'rec.' + ext);
+    try {
+      const r = await fetch('/api/transcribe', {method:'POST', body:fd});
+      if (!r.ok) throw new Error(await r.text());
+      statusEl.textContent = '完了しました。内容を確認して、必要なら訂正してください。';
+    } catch (e) { statusEl.textContent = '失敗しました: ' + e.message; }
+    recBtn.disabled = false; recBtn.textContent = '録音を開始';
+    load();
+  };
+  recorder.start();
+  recBtn.classList.add('on'); recBtn.textContent = '録音を止める';
+  statusEl.innerHTML = '<span class="dot"></span>録音中';
+};
+
+function fmt(t){ return new Date(t*1000).toLocaleString('ja-JP'); }
+
+function render(it){
+  const el = document.createElement('div');
+  el.className = 'item' + (it.approved ? ' approved' : '');
+  const top = document.createElement('div'); top.className = 'top';
+  const a = document.createElement('span'); a.textContent = fmt(it.created);
+  const b = document.createElement('span'); b.textContent = it.model.split('/').slice(-2).join('/');
+  top.append(a, b);
+
+  const ta = document.createElement('textarea'); ta.value = it.text;
+  const row = document.createElement('div'); row.className = 'row';
+  const au = document.createElement('audio'); au.controls = true; au.src = '/api/audio/' + it.id;
+  const lab = document.createElement('label');
+  const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!it.approved;
+  lab.append(cb, '学習に使う');
+  const save = document.createElement('button'); save.className = 'btn primary'; save.textContent = '保存';
+  const del = document.createElement('button'); del.className = 'btn'; del.textContent = '削除';
+  const msg = document.createElement('span'); msg.className = 'saved';
+  row.append(au, lab, save, del, msg);
+
+  save.onclick = async () => {
+    const r = await fetch('/api/items/' + it.id, {method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({text: ta.value, approved: cb.checked})});
+    msg.textContent = r.ok ? '保存しました' : '保存に失敗しました';
+    el.classList.toggle('approved', cb.checked);
+    stats();
+  };
+  del.onclick = async () => {
+    if (!confirm('この録音を削除しますか?')) return;
+    await fetch('/api/items/' + it.id, {method:'DELETE'}); load();
+  };
+  el.append(top, ta, row);
+  return el;
+}
+
+async function load(){
+  const items = await (await fetch('/api/items')).json();
+  listEl.replaceChildren();
+  if (!items.length) {
+    const p = document.createElement('p'); p.className = 'empty';
+    p.textContent = 'まだ録音がありません。最初の録音を試してください。'; listEl.append(p);
+  }
+  items.forEach(it => listEl.append(render(it)));
+  stats();
+}
+async function stats(){
+  const s = await (await fetch('/api/stats')).json();
+  $('#stats').textContent = `モデル: ${s.model.split('/').slice(-2).join('/')} / 録音 ${s.total} 件 / 承認済み ${s.approved} 件`;
+}
+load();
+</script>
+</body>
+</html>

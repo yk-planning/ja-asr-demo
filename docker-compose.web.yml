@@ -1,0 +1,29 @@
+# Web公開用: Cloudflare Tunnel 経由で公開する(ポート開放・証明書の設定は不要)
+# 使い方:  $env:TUNNEL_TOKEN="(トークン)"; docker compose -f docker-compose.web.yml up -d --build
+services:
+  asr:
+    build:
+      context: .
+      args:
+        WITH_TRAIN: ${WITH_TRAIN:-0}
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-small}
+      ASR_DEVICE: ${ASR_DEVICE:-cpu}
+      ASR_COMPUTE: ${ASR_COMPUTE:-int8}
+    volumes:
+      - ./data:/app/data
+      - ./glossary.txt:/app/glossary.txt
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped        # ポートは公開しない(Tunnel からだけ到達できる)
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?TUNNEL_TOKEN を設定してください}
+    depends_on:
+      - asr
+    restart: unless-stopped
+
+volumes:
+  hf-cache:

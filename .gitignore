@@ -1,0 +1,8 @@
+# 録音・DB・モデル(個人の音声を含むので公開しない)
+data/
+.venv/
+__pycache__/
+*.pyc
+*.zip
+*.pem
+.env

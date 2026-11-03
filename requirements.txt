@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+python-multipart
+faster-whisper>=1.1.0
+av<19    # PyAV 19 で faster-whisper 1.2.1 が動かなくなるため上限を固定
+numpy
+sherpa-onnx
