@@ -1,0 +1,5 @@
+# 用語ヒントの効果を試すための例(台本 daihon.txt に出てくる英字の製品名)
+# python scripts/cer.py --ref scripts/daihon.txt --models small --glossary scripts/glossary_dev.txt
+Docker
+Kubernetes
+Pod

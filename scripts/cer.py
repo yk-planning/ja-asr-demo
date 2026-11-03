@@ -56,8 +56,8 @@ def load(ref_path):
     return rows, None
 
 
-def glossary_prompt():
-    p = Path("glossary.txt")
+def glossary_prompt(path="glossary.txt"):
+    p = Path(path)
     if not p.exists():
         return None
     words = [l.strip() for l in p.read_text(encoding="utf-8").splitlines()
@@ -71,6 +71,7 @@ def main():
     ap.add_argument("--models", default="", help="認識し直すWhisperモデル(カンマ区切り)")
     ap.add_argument("--sherpa", action="store_true", help="途中表示用モデル(ReazonSpeech)でも認識する")
     ap.add_argument("--show", action="store_true", help="各モデルの認識結果も表示する")
+    ap.add_argument("--glossary", default="glossary.txt", help="用語ヒントのファイル(既定はアプリと同じ glossary.txt)")
     args = ap.parse_args()
 
     rows, ref_all = load(args.ref)
@@ -98,7 +99,7 @@ def main():
         hyps = []
         for a in audios:
             segs, _ = model.transcribe(a, language="ja", beam_size=5, vad_filter=True,
-                                       initial_prompt=glossary_prompt())
+                                       initial_prompt=glossary_prompt(args.glossary))
             hyps.append("".join(s.text for s in segs).strip())
         results.append((f"Whisper {name}", score(hyps), time.perf_counter() - t))
         del model
